@@ -2,7 +2,6 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
-from django.core.mail import send_mail
 from django.utils import timezone
 from datetime import timedelta
 from common.google_drive import get_google_drive_service
@@ -15,6 +14,8 @@ import random,logging,secrets,requests
 from django.conf import settings
 from .models import CloudConnect
 from .serializers import *
+import sib_api_v3_sdk
+
 logger = logging.getLogger(__name__)
 
 
@@ -101,6 +102,30 @@ class ProfileAPIView(APIView):
             )
 
 
+
+def send_brevo_email(subject, message, recipient):
+    configuration = sib_api_v3_sdk.Configuration()
+    configuration.api_key["api-key"] = settings.BREVO_API_KEY
+
+    api_client = sib_api_v3_sdk.ApiClient(configuration)
+    api_instance = sib_api_v3_sdk.TransactionalEmailsApi(api_client)
+
+    send_smtp_email = sib_api_v3_sdk.SendSmtpEmail(
+        sender={
+            "name": "CrazyFits",
+            "email": settings.DEFAULT_FROM_EMAIL,
+        },
+        to=[
+            {
+                "email": recipient,
+            }
+        ],
+        subject=subject,
+        text_content=message,
+    )
+
+    api_instance.send_transac_email(send_smtp_email)
+
 class SendOTPAPIView(APIView):
 
     def post(self, request):
@@ -108,12 +133,15 @@ class SendOTPAPIView(APIView):
         try:
 
             serializer = SendOTPSerializer(data=request.data)
+
             if serializer.is_valid():
 
                 email = serializer.validated_data["email"]
 
                 # Prune expired OTPs to maintain table hygiene
-                EmailOTP.objects.filter(expires_at__lt=timezone.now()).delete()
+                EmailOTP.objects.filter(
+                    expires_at__lt=timezone.now()
+                ).delete()
 
                 recent_otp = EmailOTP.objects.filter(
                     email=email,
@@ -121,6 +149,7 @@ class SendOTPAPIView(APIView):
                 ).exists()
 
                 if recent_otp:
+
                     return Response(
                         {
                             "success": False,
@@ -128,15 +157,23 @@ class SendOTPAPIView(APIView):
                         },
                         status=status.HTTP_429_TOO_MANY_REQUESTS
                     )
-                otp = f"{secrets.randbelow(900000) + 100000:06d}"
-                EmailOTP.objects.filter(email=email).delete()
-                EmailOTP.objects.create(email=email,otp=otp)
 
-                send_mail(
+                otp = f"{secrets.randbelow(900000) + 100000:06d}"
+
+                EmailOTP.objects.filter(
+                    email=email
+                ).delete()
+
+                EmailOTP.objects.create(
+                    email=email,
+                    otp=otp
+                )
+
+                # Send OTP through Brevo API
+                send_brevo_email(
                     subject="OTP Verification",
                     message=f"Your OTP is {otp}",
-                    from_email=None,
-                    recipient_list=[email]
+                    recipient=email
                 )
 
                 return Response(
@@ -155,7 +192,9 @@ class SendOTPAPIView(APIView):
             )
 
         except Exception as e:
+
             logger.exception("SendOTPAPIView error")
+
             return Response(
                 {
                     "success": False,
@@ -164,19 +203,25 @@ class SendOTPAPIView(APIView):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
+
 class VerifyOTPAPIView(APIView):
 
     def post(self, request):
 
         try:
 
-            serializer = VerifyOTPSerializer(data=request.data)
+            serializer = VerifyOTPSerializer(
+                data=request.data
+            )
 
             if serializer.is_valid():
 
                 email = serializer.validated_data["email"]
                 otp = serializer.validated_data["otp"]
-                otp_obj = EmailOTP.objects.filter(email=email).first()
+
+                otp_obj = EmailOTP.objects.filter(
+                    email=email
+                ).first()
 
                 if not otp_obj:
 
@@ -189,7 +234,9 @@ class VerifyOTPAPIView(APIView):
                     )
 
                 if timezone.now() > otp_obj.expires_at:
+
                     otp_obj.delete()
+
                     return Response(
                         {
                             "success": False,
@@ -198,8 +245,10 @@ class VerifyOTPAPIView(APIView):
                         status=status.HTTP_400_BAD_REQUEST
                     )
 
-                if getattr(otp_obj, 'attempts', 0) >= 5:
+                if getattr(otp_obj, "attempts", 0) >= 5:
+
                     otp_obj.delete()
+
                     return Response(
                         {
                             "success": False,
@@ -208,12 +257,27 @@ class VerifyOTPAPIView(APIView):
                         status=status.HTTP_400_BAD_REQUEST
                     )
 
-                if not secrets.compare_digest(str(otp_obj.otp), str(otp)):
-                    otp_obj.attempts = getattr(otp_obj, 'attempts', 0) + 1
-                    otp_obj.save(update_fields=["attempts"])
+                if not secrets.compare_digest(
+                    str(otp_obj.otp),
+                    str(otp)
+                ):
+
+                    otp_obj.attempts = getattr(
+                        otp_obj,
+                        "attempts",
+                        0
+                    ) + 1
+
+                    otp_obj.save(
+                        update_fields=["attempts"]
+                    )
+
                     remaining = 5 - otp_obj.attempts
+
                     if remaining <= 0:
+
                         otp_obj.delete()
+
                         return Response(
                             {
                                 "success": False,
@@ -221,6 +285,7 @@ class VerifyOTPAPIView(APIView):
                             },
                             status=status.HTTP_400_BAD_REQUEST
                         )
+
                     return Response(
                         {
                             "success": False,
@@ -229,10 +294,14 @@ class VerifyOTPAPIView(APIView):
                         status=status.HTTP_400_BAD_REQUEST
                     )
 
-                # Delete OTP immediately upon success to prevent replay attacks
+                # Delete OTP immediately upon successful verification
+                # to prevent replay attacks
                 otp_obj.delete()
 
-                user, created = User.objects.get_or_create(email=email)
+                user, created = User.objects.get_or_create(
+                    email=email
+                )
+
                 refresh = RefreshToken.for_user(user)
 
                 response = Response(
@@ -243,12 +312,13 @@ class VerifyOTPAPIView(APIView):
                         "refresh_token": str(refresh),
                         "is_new_user": created,
                         "user": {
-                                "id": user.id,
-                                "email": user.email,
-                                "full_name": user.full_name,
-                            }
-                                }
+                            "id": user.id,
+                            "email": user.email,
+                            "full_name": user.full_name,
+                        }
+                    }
                 )
+
                 response.set_cookie(
                     key="access_token",
                     value=str(refresh.access_token),
@@ -257,6 +327,7 @@ class VerifyOTPAPIView(APIView):
                     secure=not settings.DEBUG,
                     max_age=1800,  # 30 minutes
                 )
+
                 return response
 
             return Response(
@@ -268,7 +339,9 @@ class VerifyOTPAPIView(APIView):
             )
 
         except Exception as e:
+
             logger.exception("VerifyOTPAPIView error")
+
             return Response(
                 {
                     "success": False,
@@ -278,7 +351,293 @@ class VerifyOTPAPIView(APIView):
             )
 
 
+class AdminSecurityAPIView(APIView):
 
+    permission_classes = [IsAdminUser]
+
+    def post(self, request):
+
+        try:
+
+            serializer = AdminSecuritySerializer(
+                data=request.data,
+                context={
+                    "request": request
+                }
+            )
+
+            if serializer.is_valid():
+
+                user = request.user
+                action = serializer.validated_data["action"]
+
+                # -------------------------
+                # CHANGE PASSWORD
+                # -------------------------
+
+                if action == "change_password":
+
+                    new_password = serializer.validated_data["new_password"]
+
+                    user.set_password(new_password)
+                    user.save()
+
+                    refresh_token = request.data.get("refresh")
+
+                    if refresh_token:
+
+                        try:
+                            RefreshToken(refresh_token).blacklist()
+
+                        except Exception:
+                            pass
+
+                    return Response(
+                        {
+                            "success": True,
+                            "message": "Password changed successfully. Please login again."
+                        },
+                        status=status.HTTP_200_OK
+                    )
+
+                # -------------------------
+                # CHANGE EMAIL
+                # -------------------------
+
+                elif action == "change_email":
+
+                    new_email = serializer.validated_data["new_email"]
+
+                    recent_otp = EmailOTP.objects.filter(
+                        email=new_email,
+                        created_at__gte=timezone.now() - timedelta(minutes=1)
+                    ).exists()
+
+                    if recent_otp:
+
+                        return Response(
+                            {
+                                "success": False,
+                                "message": "Please wait 1 minute before requesting another OTP."
+                            },
+                            status=status.HTTP_429_TOO_MANY_REQUESTS
+                        )
+
+                    otp = str(
+                        random.randint(
+                            100000,
+                            999999
+                        )
+                    )
+
+                    EmailOTP.objects.filter(
+                        email=new_email
+                    ).delete()
+
+                    EmailOTP.objects.create(
+                        email=new_email,
+                        otp=otp
+                    )
+
+                    # Send email through Brevo API
+                    send_brevo_email(
+                        subject="Verify New Email",
+                        message=f"""
+Hello Admin,
+
+Your OTP for changing your email address is:
+
+{otp}
+
+This OTP is valid for 5 minutes.
+
+If you did not request this change, please ignore this email.
+""",
+                        recipient=new_email
+                    )
+
+                    return Response(
+                        {
+                            "success": True,
+                            "message": "OTP sent successfully to your new email."
+                        }
+                    )
+
+            return Response(
+                {
+                    "success": False,
+                    "errors": serializer.errors
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        except Exception as e:
+
+            logger.exception("AdminProfileAPIView post error")
+
+            return Response(
+                {
+                    "success": False,
+                    "message": "Failed to update profile. Please try again later."
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    def patch(self, request):
+
+        try:
+
+            user = request.user
+
+            full_name = request.data.get(
+                "full_name",
+                ""
+            ).strip()
+
+            if not full_name:
+
+                return Response(
+                    {
+                        "success": False,
+                        "message": "Full name is required."
+                    },
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            if len(full_name) < 3:
+
+                return Response(
+                    {
+                        "success": False,
+                        "message": "Full name must be at least 3 characters."
+                    },
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            user.full_name = full_name
+
+            user.save(
+                update_fields=["full_name"]
+            )
+
+            return Response(
+                {
+                    "success": True,
+                    "message": "Full name updated successfully.",
+                    "user": {
+                        "id": user.id,
+                        "full_name": user.full_name,
+                        "email": user.email,
+                    }
+                },
+                status=status.HTTP_200_OK
+            )
+
+        except Exception as e:
+
+            logger.exception("AdminSecurityAPIView patch error")
+
+            return Response(
+                {
+                    "success": False,
+                    "message": "Failed to update profile name."
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+class VerifyEmailChangeAPIView(APIView):
+
+    permission_classes = [IsAdminUser]
+
+    def post(self, request):
+
+        try:
+
+            serializer = AdminSecuritySerializer(
+                data=request.data,
+                context={
+                    "request": request
+                }
+            )
+
+            if serializer.is_valid():
+
+                user = request.user
+
+                new_email = serializer.validated_data["new_email"]
+                otp = serializer.validated_data["otp"]
+
+                otp_obj = EmailOTP.objects.filter(
+                    email=new_email,
+                    otp=otp
+                ).first()
+
+                if not otp_obj:
+
+                    return Response(
+                        {
+                            "success": False,
+                            "message": "Invalid OTP."
+                        },
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+
+                if timezone.now() > otp_obj.expires_at:
+
+                    otp_obj.delete()
+
+                    return Response(
+                        {
+                            "success": False,
+                            "message": "OTP has expired."
+                        },
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+
+                user.email = new_email
+
+                user.save()
+
+                otp_obj.delete()
+
+                refresh_token = request.data.get("refresh")
+
+                if refresh_token:
+
+                    try:
+                        RefreshToken(refresh_token).blacklist()
+
+                    except Exception:
+                        pass
+
+                return Response(
+                    {
+                        "success": True,
+                        "message": "Email changed successfully. Please login again."
+                    },
+                    status=status.HTTP_200_OK
+                )
+
+            return Response(
+                {
+                    "success": False,
+                    "errors": serializer.errors
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        except Exception as e:
+
+            logger.exception("VerifyEmailChangeAPIView error")
+
+            return Response(
+                {
+                    "success": False,
+                    "message": "Failed to verify email change."
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
       
 class GoogleAuthURLAPIView(APIView):
     permission_classes = [IsAdminUser]
@@ -419,270 +778,6 @@ class GoogleDriveStatusAPIView(APIView):
                 },
                 status=500
             )       
-
-
-class AdminSecurityAPIView(APIView):
-
-    permission_classes = [IsAdminUser]
-
-    def post(self, request):
-
-        try:
-
-            serializer = AdminSecuritySerializer(
-                data=request.data,
-                context={
-                    "request": request
-                }
-            )
-
-            if serializer.is_valid():
-
-                user = request.user
-                action = serializer.validated_data["action"]
-
-                # -------------------------
-                # CHANGE PASSWORD
-                # -------------------------
-
-                if action == "change_password":
-
-                    new_password = serializer.validated_data["new_password"]
-                    user.set_password(new_password)
-                    user.save()
-                    refresh_token = request.data.get("refresh")
-
-                    if refresh_token:
-
-                        try:
-                            RefreshToken(refresh_token).blacklist()
-
-                        except Exception:
-                            pass
-
-                    return Response(
-                        {
-                            "success": True,
-                            "message": "Password changed successfully. Please login again."
-                        },
-                        status=status.HTTP_200_OK
-                    )
-
-                # -------------------------
-                # CHANGE EMAIL
-                # -------------------------
-
-                elif action == "change_email":
-
-                    new_email = serializer.validated_data[
-                        "new_email"
-                    ]
-
-                    recent_otp = EmailOTP.objects.filter(
-                        email=new_email,
-                        created_at__gte=timezone.now() - timedelta(minutes=1)
-                    ).exists()
-
-                    if recent_otp:
-
-                        return Response(
-                            {
-                                "success": False,
-                                "message": "Please wait 1 minute before requesting another OTP."
-                            },
-                            status=status.HTTP_429_TOO_MANY_REQUESTS
-                        )
-
-                    otp = str(
-                        random.randint(
-                            100000,
-                            999999
-                        )
-                    )
-
-                    EmailOTP.objects.filter(
-                        email=new_email
-                    ).delete()
-
-                    EmailOTP.objects.create(
-                        email=new_email,
-                        otp=otp
-                    )
-
-                    send_mail(
-                        subject="Verify New Email",
-                        message=f"""
-                        Hello Admin,
-
-                        Your OTP for changing your email address is:
-
-                        {otp}
-
-                        This OTP is valid for 5 minutes.
-
-                        If you did not request this change, please ignore this email.
-                                                """,
-                        from_email=None,
-                        recipient_list=[new_email]
-                    )
-
-                    return Response(
-                        {
-                            "success": True,
-                            "message": "OTP sent successfully to your new email."
-                        }
-                    )
-
-
-            return Response(
-                {
-                    "success": False,
-                    "errors": serializer.errors
-                },
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        except Exception as e:
-            logger.exception("AdminProfileAPIView post error")
-            return Response(
-                {
-                    "success": False,
-                    "message": "Failed to update profile. Please try again later."
-                },
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
-
-    def patch(self, request):
-
-        try:
-
-            user = request.user
-
-            full_name = request.data.get("full_name", "").strip()
-
-            if not full_name:
-
-                return Response(
-                    {
-                        "success": False,
-                        "message": "Full name is required."
-                    },
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-
-            if len(full_name) < 3:
-
-                return Response(
-                    {
-                        "success": False,
-                        "message": "Full name must be at least 3 characters."
-                    },
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-
-            user.full_name = full_name
-            user.save(update_fields=["full_name"])
-
-            return Response(
-                {
-                    "success": True,
-                    "message": "Full name updated successfully.",
-                    "user": {
-                        "id": user.id,
-                        "full_name": user.full_name,
-                        "email": user.email,
-                    }
-                },
-                status=status.HTTP_200_OK
-            )
-
-        except Exception as e:
-            logger.exception("AdminSecurityAPIView patch error")
-            return Response(
-                {
-                    "success": False,
-                    "message": "Failed to update profile name."
-                },
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
-
-
-
-class VerifyEmailChangeAPIView(APIView):
-
-    permission_classes = [IsAdminUser]
-
-    def post(self, request):
-
-        try:
-
-            serializer = AdminSecuritySerializer(data=request.data,context={"request": request})
-
-            if serializer.is_valid():
-
-                user = request.user
-                new_email = serializer.validated_data["new_email"]
-                otp = serializer.validated_data["otp"]
-                otp_obj = EmailOTP.objects.filter(email=new_email,otp=otp).first()
-
-                if not otp_obj:
-
-                    return Response(
-                        {
-                            "success": False,
-                            "message": "Invalid OTP."
-                        },
-                        status=status.HTTP_400_BAD_REQUEST
-                    )
-
-                if timezone.now() > otp_obj.expires_at:
-
-                    otp_obj.delete()
-
-                    return Response(
-                        {
-                            "success": False,
-                            "message": "OTP has expired."
-                        },
-                        status=status.HTTP_400_BAD_REQUEST
-                    )
-
-                user.email = new_email
-                user.save()
-                otp_obj.delete()
-
-                refresh_token = request.data.get("refresh")
-                if refresh_token:
-                    try:
-                        RefreshToken(refresh_token).blacklist()
-                    except Exception:
-                        pass
-
-                return Response(
-                    {
-                        "success": True,
-                        "message": "Email changed successfully. Please login again."
-                    },
-                    status=status.HTTP_200_OK
-                )
-
-            return Response(
-                {
-                    "success": False,
-                    "errors": serializer.errors
-                },
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        except Exception as e:
-            logger.exception("VerifyEmailChangeAPIView error")
-            return Response(
-                {
-                    "success": False,
-                    "message": "Failed to verify email change."
-                },
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
 
 
 class CustomTokenRefreshView(TokenRefreshView):

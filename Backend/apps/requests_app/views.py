@@ -1,6 +1,6 @@
 from django.db import transaction
 from django.db.models import Count
-import uuid, logging, os
+import uuid, logging, os,zipfile,io
 from django.utils import timezone
 from django.core.mail import send_mail
 from django.conf import settings
@@ -17,8 +17,6 @@ from django.db.models import Q
 from rest_framework.exceptions import ValidationError
 from common.pagination import TShirtPagination
 from common.google_drive import delete_file_from_google_drive, download_file_from_google_drive
-import zipfile
-import io
 from django.http import HttpResponse
 
 logger = logging.getLogger(__name__)
