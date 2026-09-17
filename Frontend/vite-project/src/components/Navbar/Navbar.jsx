@@ -167,7 +167,7 @@ export default function Navbar({ settings }) {
                 {/* ── Profile icon ── */}
                 {!customer ? (
 
-                    <li className="relative flex items-center" ref={loginDropdownRef}>
+                    <li className="relative flex flex-col md:flex-row md:items-center" ref={loginDropdownRef}>
                         <button
                             id="profile-icon-btn"
                             className={`flex items-center justify-center w-10 h-10 rounded-full border bg-surface text-dark hover:text-primary hover:border-primary hover:shadow-xs focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all duration-200 cursor-pointer ${showLoginDropdown ? "border-primary text-primary bg-background shadow-xs" : "border-border"
@@ -180,21 +180,24 @@ export default function Navbar({ settings }) {
                         </button>
 
                         <div
-                            className={`absolute left-0 md:left-auto md:right-0 top-[52px] w-[300px] bg-surface border border-border rounded-xl shadow-md z-50 overflow-hidden transition-all duration-200 ${showLoginDropdown
-                                ? "opacity-100 scale-100 translate-y-0 visible pointer-events-auto"
-                                : "opacity-0 scale-95 -translate-y-2 invisible pointer-events-none"
+                            className={`mt-3 md:mt-0 md:absolute md:top-[52px] md:right-0 w-full md:w-[320px] bg-surface border border-border rounded-xl shadow-lg z-50 overflow-hidden transition-all duration-200 ${showLoginDropdown
+                                ? "opacity-100 scale-100 translate-y-0 visible pointer-events-auto block"
+                                : "opacity-0 scale-95 -translate-y-2 invisible pointer-events-none hidden md:block"
                                 }`}
                         >
                             <LoginModal
                                 open={showLoginDropdown}
-                                onClose={() => setShowLoginDropdown(false)}
+                                onClose={() => {
+                                    setShowLoginDropdown(false);
+                                    closeMenu();
+                                }}
                             />
                         </div>
                     </li>
 
                 ) : (
 
-                    <li className="relative flex items-center" ref={profileMenuRef}>
+                    <li className="relative flex flex-col md:flex-row md:items-center" ref={profileMenuRef}>
                         <button
                             id="profile-icon-btn"
                             className={`flex items-center justify-center w-10 h-10 rounded-full border bg-surface text-dark hover:text-primary hover:border-primary hover:shadow-xs focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all duration-200 cursor-pointer ${showProfileMenu ? "border-primary text-primary bg-background shadow-xs" : "border-border"
@@ -207,9 +210,9 @@ export default function Navbar({ settings }) {
                         </button>
 
                         <div
-                            className={`absolute left-0 md:left-auto md:right-0 top-[52px] w-[260px] bg-surface border border-border rounded-xl shadow-md overflow-hidden z-50 transition-all duration-200 ${showProfileMenu
-                                ? "opacity-100 scale-100 translate-y-0 visible pointer-events-auto"
-                                : "opacity-0 scale-95 -translate-y-2 invisible pointer-events-none"
+                            className={`mt-3 md:mt-0 md:absolute md:top-[52px] md:right-0 w-full md:w-[260px] bg-surface border border-border rounded-xl shadow-lg overflow-hidden z-50 transition-all duration-200 ${showProfileMenu
+                                ? "opacity-100 scale-100 translate-y-0 visible pointer-events-auto block"
+                                : "opacity-0 scale-95 -translate-y-2 invisible pointer-events-none hidden md:block"
                                 }`}
                         >
                             <div className="px-4 py-3 bg-background/30 border-b border-border">

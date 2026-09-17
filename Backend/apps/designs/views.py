@@ -84,6 +84,8 @@ class DesignAPIView(APIView):
 
     def post(self, request):
 
+        uploaded_drive_files = []
+
         try:
 
             serializer = CreateDesignSerializer(data=request.data)
@@ -97,34 +99,101 @@ class DesignAPIView(APIView):
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
+
             front_preview = request.FILES.get("front_preview_image")
             back_preview = request.FILES.get("back_preview_image")
-
-            if front_preview:
-                err = validate_image_file(front_preview, MAX_PREVIEW_SIZE, "Front preview image")
-                if err:
-                    return Response({"success": False, "message": err}, status=status.HTTP_400_BAD_REQUEST)
-
-            if back_preview:
-                err = validate_image_file(back_preview, MAX_PREVIEW_SIZE, "Back preview image")
-                if err:
-                    return Response({"success": False, "message": err}, status=status.HTTP_400_BAD_REQUEST)
 
             front_png_files_list = request.FILES.getlist("front_png_files")
             back_png_files_list = request.FILES.getlist("back_png_files")
 
-            for png in front_png_files_list:
-                err = validate_image_file(png, MAX_PNG_SIZE, f"Front PNG file ({png.name})")
+
+            if front_preview:
+                err = validate_image_file(
+                    front_preview,
+                    MAX_PREVIEW_SIZE,
+                    "Front preview image"
+                )
+
                 if err:
-                    return Response({"success": False, "message": err}, status=status.HTTP_400_BAD_REQUEST)
+                    return Response(
+                        {
+                            "success": False,
+                            "message": err
+                        },
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+
+            if back_preview:
+                err = validate_image_file(
+                    back_preview,
+                    MAX_PREVIEW_SIZE,
+                    "Back preview image"
+                )
+
+                if err:
+                    return Response(
+                        {
+                            "success": False,
+                            "message": err
+                        },
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+
+            # ---------------------------------------------------------
+            # VALIDATE FRONT PNG FILES
+            # ---------------------------------------------------------
+
+            for png in front_png_files_list:
+
+                err = validate_image_file(
+                    png,
+                    MAX_PNG_SIZE,
+                    f"Front PNG file ({png.name})"
+                )
+
+                if err:
+                    return Response(
+                        {
+                            "success": False,
+                            "message": err
+                        },
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+
+            # ---------------------------------------------------------
+            # VALIDATE BACK PNG FILES
+            # ---------------------------------------------------------
 
             for png in back_png_files_list:
-                err = validate_image_file(png, MAX_PNG_SIZE, f"Back PNG file ({png.name})")
+
+                err = validate_image_file(
+                    png,
+                    MAX_PNG_SIZE,
+                    f"Back PNG file ({png.name})"
+                )
+
                 if err:
-                    return Response({"success": False, "message": err}, status=status.HTTP_400_BAD_REQUEST)
+                    return Response(
+                        {
+                            "success": False,
+                            "message": err
+                        },
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+
+            # ---------------------------------------------------------
+            # INITIAL VALUES
+            # ---------------------------------------------------------
 
             front_image_url = None
             back_image_url = None
+
+            front_pngs_data = []
+            back_pngs_data = []
+
+            # ---------------------------------------------------------
+            # UPLOAD FRONT PREVIEW
+            # ---------------------------------------------------------
 
             if front_preview:
 
@@ -134,8 +203,15 @@ class DesignAPIView(APIView):
                     file_obj=front_preview,
                     filename=filename,
                     folder_name="designs",
-                    public=False  # Customer design images are private
+                    public=False
                 )
+
+                # Remember the uploaded file for rollback.
+                uploaded_drive_files.append(front_image_url)
+
+            # ---------------------------------------------------------
+            # UPLOAD BACK PREVIEW
+            # ---------------------------------------------------------
 
             if back_preview:
 
@@ -145,22 +221,72 @@ class DesignAPIView(APIView):
                     file_obj=back_preview,
                     filename=filename,
                     folder_name="designs",
-                    public=False  # Customer design images are private
+                    public=False
                 )
 
-            front_pngs_data = []
-            for png in front_png_files_list:
-                filename = f"{uuid.uuid4()}_{png.name}"
-                url = upload_file_to_google_drive(file_obj=png, filename=filename, folder_name="designs", public=False)
-                file_id = extract_drive_file_id(url)
-                front_pngs_data.append({"name": png.name, "file_id": file_id, "url": url})
+                # Remember the uploaded file for rollback.
+                uploaded_drive_files.append(back_image_url)
 
-            back_pngs_data = []
-            for png in back_png_files_list:
+            # ---------------------------------------------------------
+            # UPLOAD FRONT PNG FILES
+            # ---------------------------------------------------------
+
+            for png in front_png_files_list:
+
                 filename = f"{uuid.uuid4()}_{png.name}"
-                url = upload_file_to_google_drive(file_obj=png, filename=filename, folder_name="designs", public=False)
+
+                url = upload_file_to_google_drive(
+                    file_obj=png,
+                    filename=filename,
+                    folder_name="designs",
+                    public=False
+                )
+
+                # Remember the uploaded file for rollback.
+                uploaded_drive_files.append(url)
+
                 file_id = extract_drive_file_id(url)
-                back_pngs_data.append({"name": png.name, "file_id": file_id, "url": url})
+
+                front_pngs_data.append(
+                    {
+                        "name": png.name,
+                        "file_id": file_id,
+                        "url": url
+                    }
+                )
+
+            # ---------------------------------------------------------
+            # UPLOAD BACK PNG FILES
+            # ---------------------------------------------------------
+
+            for png in back_png_files_list:
+
+                filename = f"{uuid.uuid4()}_{png.name}"
+
+                url = upload_file_to_google_drive(
+                    file_obj=png,
+                    filename=filename,
+                    folder_name="designs",
+                    public=False
+                )
+
+                # Remember the uploaded file for rollback.
+                uploaded_drive_files.append(url)
+
+                file_id = extract_drive_file_id(url)
+
+                back_pngs_data.append(
+                    {
+                        "name": png.name,
+                        "file_id": file_id,
+                        "url": url
+                    }
+                )
+
+            # ---------------------------------------------------------
+            # ALL GOOGLE DRIVE UPLOADS SUCCESSFUL
+            # NOW CREATE DATABASE RECORD
+            # ---------------------------------------------------------
 
             with transaction.atomic():
 
@@ -168,12 +294,18 @@ class DesignAPIView(APIView):
                     user=request.user,
                     design_name=serializer.validated_data["design_name"],
                     front_design_json=serializer.validated_data["front_design_json"],
-                    back_design_json=serializer.validated_data.get("back_design_json"),
+                    back_design_json=serializer.validated_data.get(
+                        "back_design_json"
+                    ),
                     front_preview_image_url=front_image_url,
                     back_preview_image_url=back_image_url,
                     front_png_files=front_pngs_data,
                     back_png_files=back_pngs_data,
                 )
+
+            # ---------------------------------------------------------
+            # SUCCESS
+            # ---------------------------------------------------------
 
             return Response(
                 {
@@ -187,8 +319,40 @@ class DesignAPIView(APIView):
                 status=status.HTTP_201_CREATED,
             )
 
-        except Exception as e:
+        except Exception:
+
             logger.exception("DesignAPIView post error")
+
+            # ---------------------------------------------------------
+            # GOOGLE DRIVE ROLLBACK
+            #
+            # If ANY upload or database operation fails,
+            # delete every Google Drive file uploaded during
+            # this request.
+            # ---------------------------------------------------------
+
+            for file_url in uploaded_drive_files:
+
+                try:
+
+                    delete_file_from_google_drive(file_url)
+
+                    logger.info(
+                        "Rolled back Google Drive file: %s",
+                        file_url
+                    )
+
+                except Exception:
+
+                    logger.exception(
+                        "Failed to rollback Google Drive file: %s",
+                        file_url
+                    )
+
+            # ---------------------------------------------------------
+            # RETURN ERROR
+            # ---------------------------------------------------------
+
             return Response(
                 {
                     "success": False,

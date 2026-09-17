@@ -4,7 +4,8 @@ from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseUpload, MediaIoBaseDownload
 from apps.accounts.models import CloudConnect
-import logging
+import logging,httplib2
+
 from google.auth.exceptions import RefreshError
 from PIL import Image
 
@@ -33,17 +34,20 @@ def get_google_drive_service():
             scopes=["https://www.googleapis.com/auth/drive"],
         )
 
-        credentials.refresh(Request())
+        credentials.refresh(Request(timeout=30))
 
         if not cloud.is_active:
             cloud.is_active = True
             cloud.save(update_fields=["is_active"])
+
+        http = httplib2.Http(timeout=30)
 
         return build(
             "drive",
             "v3",
             credentials=credentials,
             cache_discovery=False,
+            http=http
         )
 
     except RefreshError:
@@ -130,7 +134,7 @@ def compress_image(file_obj):
         output,
         format="WEBP",
         lossless=True,   # Pixel-perfect
-        method=6,        # Best compression (0-6)
+        method=4,        # Best compression (0-6)
     )
 
     output.seek(0)

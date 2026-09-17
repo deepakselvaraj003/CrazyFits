@@ -58,10 +58,10 @@ function LoginModal({ open, onClose }) {
     if (!open) return null;
 
     return (
-        <div className="w-full max-w-sm rounded-[10px] border border-border bg-surface p-6 shadow-2xl shadow-black/10 transition-all duration-300 sm:p-8">
+        <div className="w-full bg-surface p-3 sm:p-5 transition-all duration-300">
             {step === "customer" && (
-                <div className="space-y-5">
-                    <div className="border-b border-border pb-4">
+                <div className="space-y-3 sm:space-y-5">
+                    <div className="border-b border-border pb-2 sm:pb-4">
                         <p className="text-sm font-semibold uppercase tracking-[0.14em] text-secondary">
                             Customer Login
                         </p>
@@ -73,7 +73,7 @@ function LoginModal({ open, onClose }) {
                         </p>
                     )}
 
-                    <div className="space-y-3">
+                    <div className="space-y-2 sm:space-y-3">
                         <label className="block text-sm font-semibold text-secondary">
                             Email Address
                         </label>
@@ -105,8 +105,8 @@ function LoginModal({ open, onClose }) {
             )}
 
             {step === "otp" && (
-                <div className="space-y-5">
-                    <div className="border-b border-border pb-4">
+                <div className="space-y-3 sm:space-y-5">
+                    <div className="border-b border-border pb-2 sm:pb-4">
                         <p className="text-sm font-semibold uppercase tracking-[0.22em] text-secondary">
                             Verify OTP
                         </p>
@@ -122,7 +122,7 @@ function LoginModal({ open, onClose }) {
                         </p>
                     )}
 
-                    <div className="space-y-3">
+                    <div className="space-y-2 sm:space-y-3">
                         <label className="block text-sm font-semibold text-secondary">OTP</label>
                         <input
                             type="text"
