@@ -74,6 +74,7 @@ export default function AppRoutes() {
                     <AdminLayout />
                 </ProtectedAdminRoute>
             }>
+                <Route index element={<Navigate to="/admin/dashboard" replace />} />
                 <Route path="dashboard" element={<Dashboard />} />
                 <Route path="requests" element={<Requests />} />
                 <Route path="notifications" element={<Notifications />} />

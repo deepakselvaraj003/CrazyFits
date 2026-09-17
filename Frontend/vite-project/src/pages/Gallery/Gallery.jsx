@@ -363,90 +363,93 @@ function Gallery() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-dark/70 px-4 py-6 backdrop-blur-sm"
+            className="fixed inset-0 z-50 flex items-center justify-center bg-dark/70 p-3 sm:p-4 md:p-6 backdrop-blur-sm overflow-y-auto"
+            onClick={(e) => {
+              if (e.target === e.currentTarget) closePreview();
+            }}
           >
             <motion.div
               initial={{ y: 24, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: 24, opacity: 0 }}
               transition={{ duration: 0.25 }}
-              className="relative w-full max-w-5xl overflow-hidden rounded-[28px] border border-border bg-background shadow-2xl"
+              className="relative w-full max-w-5xl my-auto max-h-[92vh] flex flex-col rounded-[20px] sm:rounded-[28px] border border-border bg-background shadow-2xl overflow-hidden"
               role="dialog"
               aria-modal="true"
               aria-label="Gallery design preview"
             >
-              <div className="flex flex-col gap-4 border-b border-border px-5 py-5 sm:flex-row sm:items-start sm:justify-between sm:px-6 sm:py-4">
+              <div className="flex shrink-0 items-center justify-between border-b border-border px-4 py-3 sm:px-6 sm:py-4 bg-background">
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.3em] text-secondary">
+                  <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-[0.3em] text-secondary">
                     Design preview
                   </p>
-                  <h2 className="mt-2 text-2xl font-bold text-dark font-heading sm:text-3xl">
+                  <h2 className="mt-0.5 text-lg font-bold text-dark font-heading sm:text-2xl md:text-3xl">
                     {previewDesign.design_name}
                   </h2>
                 </div>
                 <button
                   type="button"
                   onClick={closePreview}
-                  className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-border bg-surface text-secondary transition duration-200 hover:border-primary hover:text-dark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-2"
+                  className="inline-flex h-9 w-9 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-full border border-border bg-surface text-secondary transition duration-200 hover:border-primary hover:text-dark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
                   aria-label="Close preview"
                 >
-                  ×
+                  ✕
                 </button>
               </div>
 
-              <div className="px-5 py-5 sm:px-6 sm:py-6">
+              <div className="overflow-y-auto p-3 sm:p-5 md:p-6">
                 {previewLoading ? (
-                  <div className="flex min-h-[320px] flex-col items-center justify-center gap-4 rounded-[24px] border border-border bg-background p-10 text-center">
+                  <div className="flex min-h-[220px] sm:min-h-[320px] flex-col items-center justify-center gap-4 rounded-[18px] sm:rounded-[24px] border border-border bg-background p-6 sm:p-10 text-center">
                     <motion.div
-                      className="flex h-16 w-16 items-center justify-center rounded-full border-4 border-primary/20 border-t-primary"
+                      className="flex h-12 w-12 sm:h-16 sm:w-16 items-center justify-center rounded-full border-4 border-primary/20 border-t-primary"
                       animate={{ rotate: 360 }}
                       transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
                       aria-hidden="true"
                     />
                     <div>
-                      <p className="text-lg font-semibold text-dark">Loading preview</p>
-                      <p className="mt-2 text-sm text-secondary">Waiting for both front and back images to finish loading.</p>
+                      <p className="text-base sm:text-lg font-semibold text-dark">Loading preview</p>
+                      <p className="mt-1 sm:mt-2 text-xs sm:text-sm text-secondary">Waiting for both front and back images to finish loading.</p>
                     </div>
                   </div>
                 ) : previewError ? (
-                  <div className="rounded-[24px] border border-border bg-surface p-8 text-center">
-                    <p className="text-lg font-semibold text-dark">Preview error</p>
-                    <p className="mt-2 text-sm leading-6 text-secondary">{previewError}</p>
+                  <div className="rounded-[18px] sm:rounded-[24px] border border-border bg-surface p-6 sm:p-8 text-center">
+                    <p className="text-base sm:text-lg font-semibold text-dark">Preview error</p>
+                    <p className="mt-2 text-xs sm:text-sm leading-6 text-secondary">{previewError}</p>
                     <button
                       type="button"
                       onClick={closePreview}
-                      className="mt-6 inline-flex rounded-[18px] border border-border bg-primary px-5 py-3 text-sm font-semibold text-surface transition hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-2"
+                      className="mt-4 sm:mt-6 inline-flex rounded-[18px] border border-border bg-primary px-5 py-2.5 sm:py-3 text-sm font-semibold text-surface transition hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
                     >
                       Close preview
                     </button>
                   </div>
                 ) : (
-                  <div className="grid gap-6 lg:grid-cols-2">
-                    <div className="space-y-4 rounded-[24px] border border-border bg-surface p-5 shadow-sm">
+                  <div className="grid gap-4 sm:gap-6 md:grid-cols-2">
+                    <div className="space-y-3 sm:space-y-4 rounded-[18px] sm:rounded-[24px] border border-border bg-surface p-3 sm:p-5 shadow-sm">
                       <div className="flex items-center justify-between gap-4">
-                        <span className="rounded-full bg-primary/10 px-3 py-1 text-sm font-semibold text-primary">
+                        <span className="rounded-full bg-primary/10 px-3 py-1 text-xs sm:text-sm font-semibold text-primary">
                           Front View
                         </span>
                       </div>
-                      <div className="overflow-hidden rounded-[24px] bg-background">
+                      <div className="flex items-center justify-center overflow-hidden rounded-[14px] sm:rounded-[20px] bg-background py-2">
                         <img
                           src={previewDesign.front_image_url}
                           alt={`${previewDesign.design_name} front preview`}
-                          className="h-[340px] w-full object-contain"
+                          className="h-[200px] sm:h-[260px] md:h-[300px] lg:h-[340px] w-full object-contain"
                         />
                       </div>
                     </div>
-                    <div className="space-y-4 rounded-[24px] border border-border bg-surface p-5 shadow-sm">
+                    <div className="space-y-3 sm:space-y-4 rounded-[18px] sm:rounded-[24px] border border-border bg-surface p-3 sm:p-5 shadow-sm">
                       <div className="flex items-center justify-between gap-4">
-                        <span className="rounded-full bg-primary/10 px-3 py-1 text-sm font-semibold text-primary">
+                        <span className="rounded-full bg-primary/10 px-3 py-1 text-xs sm:text-sm font-semibold text-primary">
                           Back View
                         </span>
                       </div>
-                      <div className="overflow-hidden rounded-[24px] bg-background">
+                      <div className="flex items-center justify-center overflow-hidden rounded-[14px] sm:rounded-[20px] bg-background py-2">
                         <img
                           src={previewDesign.back_image_url}
                           alt={`${previewDesign.design_name} back preview`}
-                          className="h-[340px] w-full object-contain"
+                          className="h-[200px] sm:h-[260px] md:h-[300px] lg:h-[340px] w-full object-contain"
                         />
                       </div>
                     </div>

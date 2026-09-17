@@ -180,7 +180,7 @@ export default function Navbar({ settings }) {
                         </button>
 
                         <div
-                            className={`absolute left-0 md:left-auto md:right-0 top-[52px] w-[280px] bg-surface border border-border rounded-xl shadow-md z-50 overflow-hidden transition-all duration-200 ${showLoginDropdown
+                            className={`absolute left-0 md:left-auto md:right-0 top-[52px] w-[300px] bg-surface border border-border rounded-xl shadow-md z-50 overflow-hidden transition-all duration-200 ${showLoginDropdown
                                 ? "opacity-100 scale-100 translate-y-0 visible pointer-events-auto"
                                 : "opacity-0 scale-95 -translate-y-2 invisible pointer-events-none"
                                 }`}

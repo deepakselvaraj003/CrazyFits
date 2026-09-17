@@ -15,6 +15,11 @@ function Login() {
     const [loading, setLoading] = useState(false);
 
     useEffect(() => {
+        if (localStorage.getItem("admin")) {
+            navigate("/admin/dashboard", { replace: true });
+            return;
+        }
+
         if (location.state?.successMessage) {
             toast.success(location.state.successMessage);
 

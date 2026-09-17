@@ -30,6 +30,34 @@ function Design() {
     const textColorScrollRef = useRef(null);
     const shirtColorScrollRef = useRef(null);
 
+    const [canvasScale, setCanvasScale] = useState(1);
+    const [activeMobilePanel, setActiveMobilePanel] = useState(null);
+
+    useEffect(() => {
+        const updateScale = () => {
+            const width = window.innerWidth;
+            const height = window.innerHeight;
+
+            if (width >= 1024) {
+                setCanvasScale(1);
+            } else if (width >= 768) {
+                // Tablet: width between 768 and 1023
+                const scaleW = (width - 80) / 700;
+                const scaleH = (height * 0.55) / 820;
+                setCanvasScale(Math.max(0.48, Math.min(0.72, scaleW, scaleH)));
+            } else {
+                // Mobile: width < 768
+                const scaleW = (width - 40) / 700;
+                const scaleH = (height * 0.48) / 820;
+                setCanvasScale(Math.max(0.38, Math.min(0.52, scaleW, scaleH)));
+            }
+        };
+
+        updateScale();
+        window.addEventListener("resize", updateScale);
+        return () => window.removeEventListener("resize", updateScale);
+    }, []);
+
     const scrollCarousel = (ref, direction) => {
         if (ref.current) {
             ref.current.scrollBy({ left: direction * 150, behavior: "smooth" });
@@ -158,7 +186,7 @@ function Design() {
     const capturePreview = async () => {
         const canvas = await html2canvas(previewRef.current, {
             backgroundColor: null,
-            scale: 2,
+            scale: 2 / canvasScale,
             useCORS: true,
         });
 
@@ -223,7 +251,7 @@ function Design() {
             designData.front.logos.forEach(logo => {
                 if (logo.file) formData.append("front_png_files", logo.file);
             });
-            
+
             designData.back.logos.forEach(logo => {
                 if (logo.file) formData.append("back_png_files", logo.file);
             });
@@ -351,60 +379,10 @@ function Design() {
         }
     };
 
-    return (
-        <div className="min-h-screen bg-background py-8 px-4 sm:px-6 md:px-10 lg:px-16 font-body text-dark flex justify-center">
-            <div className="w-full max-w-7xl flex flex-col lg:flex-row gap-8 items-start">
 
-                {/* ═══════════ LEFT TOOLBAR ═══════════ */}
-                <div className="w-full lg:w-96 shrink-0 rounded-card border border-border bg-surface p-6 shadow-md shadow-primary/5 flex flex-col gap-6">
-
-                    <div className="flex items-center justify-between border-b border-border pb-4">
-                        <h2 className="text-xl font-extrabold font-heading text-dark">Customize</h2>
-                        <div className="flex gap-2">
-                            <button
-                                className="w-9 h-9 rounded-button bg-background border border-border hover:bg-border/30 text-dark font-bold flex items-center justify-center transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-                                onClick={undo}
-                                disabled={history.length === 0}
-                                title="Undo"
-                            >
-                                ↩
-                            </button>
-                            <button
-                                className="w-9 h-9 rounded-button bg-background border border-border hover:bg-border/30 text-dark font-bold flex items-center justify-center transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-                                onClick={redo}
-                                disabled={future.length === 0}
-                                title="Redo"
-                            >
-                                ↪
-                            </button>
-                        </div>
-                    </div>
-
-                    {/* Front / Back Tab Toggle */}
-                    <div className="flex rounded-button bg-background p-1 border border-border">
-                        <button
-                            className={`flex-1 py-2 rounded-button text-sm font-semibold transition-all duration-200 cursor-pointer ${
-                                currentSide === "front"
-                                    ? "bg-primary text-surface shadow-xs"
-                                    : "text-secondary hover:text-dark"
-                            }`}
-                            onClick={() => setCurrentSide("front")}
-                        >
-                            Front
-                        </button>
-                        <button
-                            className={`flex-1 py-2 rounded-button text-sm font-semibold transition-all duration-200 cursor-pointer ${
-                                currentSide === "back"
-                                    ? "bg-primary text-surface shadow-xs"
-                                    : "text-secondary hover:text-dark"
-                            }`}
-                            onClick={() => setCurrentSide("back")}
-                        >
-                            Back
-                        </button>
-                    </div>
-
-                    {/* ── Text Section ── */}
+    const renderTextTools = () => (
+        <>
+{/* ── Text Section ── */}
                     <div className="flex flex-col gap-3 pb-5 border-b border-border">
                         <p className="text-xs font-bold uppercase tracking-wider text-secondary font-heading">✏️ Add Text</p>
                         <div className="flex flex-col gap-3">
@@ -479,9 +457,8 @@ function Design() {
                                 {["#000000", "#ffffff", "#ff0000", "#0000ff", "#008000", "#ffff00", "#ff9800", "#800080"].map(color => (
                                     <div
                                         key={color}
-                                        className={`w-7 h-7 rounded-full border border-border shadow-xs cursor-pointer transition-transform hover:scale-110 shrink-0 ${
-                                            selectedText?.color === color ? "ring-2 ring-primary ring-offset-2" : ""
-                                        }`}
+                                        className={`w-7 h-7 rounded-full border border-border shadow-xs cursor-pointer transition-transform hover:scale-110 shrink-0 ${selectedText?.color === color ? "ring-2 ring-primary ring-offset-2" : ""
+                                            }`}
                                         style={{ background: color }}
                                         onClick={() => {
                                             if (!selectedText) return;
@@ -578,7 +555,13 @@ function Design() {
                         />
                     </div>
 
-                    {/* ── T-Shirt Color ── */}
+                    
+        </>
+    );
+
+    const renderColorTools = () => (
+        <>
+{/* ── T-Shirt Color ── */}
                     <div className="flex flex-col gap-3 pb-5 border-b border-border">
                         <p className="text-xs font-bold uppercase tracking-wider text-secondary font-heading">👕 T-Shirt Color</p>
                         <div className="flex items-center gap-2 relative">
@@ -606,9 +589,8 @@ function Design() {
                                 ].map(({ name, hex }) => (
                                     <div
                                         key={name}
-                                        className={`w-7 h-7 rounded-full border border-border shadow-xs cursor-pointer transition-transform hover:scale-110 shrink-0 ${
-                                            shirtColor === name ? "ring-2 ring-primary ring-offset-2" : ""
-                                        }`}
+                                        className={`w-7 h-7 rounded-full border border-border shadow-xs cursor-pointer transition-transform hover:scale-110 shrink-0 ${shirtColor === name ? "ring-2 ring-primary ring-offset-2" : ""
+                                            }`}
                                         style={{ background: hex }}
                                         onClick={() => setShirtColor(name)}
                                         title={name}
@@ -624,7 +606,13 @@ function Design() {
                         </div>
                     </div>
 
-                    {/* ── Upload Logo ── */}
+                    
+        </>
+    );
+
+    const renderLogoTools = () => (
+        <>
+{/* ── Upload Logo ── */}
                     <div className="flex flex-col gap-3">
                         <p className="text-xs font-bold uppercase tracking-wider text-secondary font-heading">🖼 Upload Logo</p>
                         <label className="w-full py-3 px-4 bg-background border-2 border-dashed border-border hover:border-primary text-secondary hover:text-primary font-semibold rounded-card transition-all cursor-pointer flex items-center justify-center gap-2 text-sm">
@@ -665,17 +653,73 @@ function Design() {
                             />
                         </label>
                     </div>
+        </>
+    );
+    return (
+        <div className="min-h-screen bg-background py-3 sm:py-5 lg:py-8 px-3 sm:px-6 md:px-8 lg:px-12 font-body text-dark flex justify-center">
+            <div className="w-full max-w-7xl flex flex-col lg:flex-row gap-4 sm:gap-6 lg:gap-8 items-stretch">
 
+                {/* ═══════════ LEFT TOOLBAR ═══════════ */}
+                <div className="hidden lg:flex w-full lg:w-96 shrink-0 rounded-card border border-border bg-surface p-5 lg:p-6 shadow-md shadow-primary/5 flex-col justify-between order-2 lg:order-1">
+                    <div className="flex items-center justify-between border-b border-border pb-4">
+                        <h2 className="text-xl font-extrabold font-heading text-dark">Customize</h2>
+                        <div className="flex gap-2">
+                            <button
+                                className="w-9 h-9 rounded-button bg-background border border-border hover:bg-border/30 text-dark font-bold flex items-center justify-center transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                                onClick={undo}
+                                disabled={history.length === 0}
+                                title="Undo"
+                            >
+                                ↩
+                            </button>
+                            <button
+                                className="w-9 h-9 rounded-button bg-background border border-border hover:bg-border/30 text-dark font-bold flex items-center justify-center transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                                onClick={redo}
+                                disabled={future.length === 0}
+                                title="Redo"
+                            >
+                                ↪
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Front / Back Tab Toggle (Desktop) */}
+                    <div className="flex rounded-button bg-background p-1 border border-border">
+                        <button
+                            className={`flex-1 py-2 rounded-button text-sm font-semibold transition-all duration-200 cursor-pointer ${currentSide === "front"
+                                    ? "bg-primary text-surface shadow-xs"
+                                    : "text-secondary hover:text-dark"
+                                }`}
+                            onClick={() => setCurrentSide("front")}
+                        >
+                            Front
+                        </button>
+                        <button
+                            className={`flex-1 py-2 rounded-button text-sm font-semibold transition-all duration-200 cursor-pointer ${currentSide === "back"
+                                    ? "bg-primary text-surface shadow-xs"
+                                    : "text-secondary hover:text-dark"
+                                }`}
+                            onClick={() => setCurrentSide("back")}
+                        >
+                            Back
+                        </button>
+                    </div>
+
+                    {renderTextTools()}
+                    {renderColorTools()}
+                    {renderLogoTools()}
                 </div>
 
                 {/* ═══════════ RIGHT PREVIEW ═══════════ */}
-                <div className="flex-1 w-full rounded-card border border-border bg-surface p-6 shadow-md flex flex-col items-center justify-between min-h-[600px] gap-6">
+                <div className="w-full lg:flex-1 rounded-card border border-border bg-surface p-3 sm:p-5 lg:p-6 shadow-md flex flex-col items-center justify-start gap-3 sm:gap-4 lg:gap-6 order-1 lg:order-2">
 
-                    {/* ── Top Header with Get Quote ── */}
-                    <div className="w-full flex items-center justify-between border-b border-border pb-4">
-                        <h3 className="text-xl font-bold font-heading text-dark">Design Preview</h3>
+                    {/* ── Top Header with Get Quote & Mobile Undo/Redo ── */}
+                    <div className="w-full flex items-center justify-between border-b border-border pb-3 sm:pb-4 gap-2">
+                        <div className="flex items-center gap-2">
+                            <h3 className="text-lg sm:text-xl font-bold font-heading text-dark">Design Preview</h3>
+                            </div>
                         <Button
-                            className="text-sm"
+                            className="text-xs sm:text-sm shrink-0"
                             variant="primary"
                             size="md"
                             onClick={handleGetQuote}
@@ -685,8 +729,15 @@ function Design() {
                         </Button>
                     </div>
 
-                    <div className="relative w-full max-w-[700px] flex justify-center items-center overflow-hidden py-4 bg-background/50 rounded-card border border-border/50">
-                        <div className="relative w-[700px] h-[820px] flex justify-center items-center max-w-full" ref={previewRef}>
+                    <div className="relative w-full max-w-[700px] flex justify-center items-center overflow-hidden py-1 sm:py-2 lg:py-4 bg-background/50 rounded-card border border-border/50">
+                        <div
+                            className="relative flex justify-center items-center select-none"
+                            ref={previewRef}
+                            style={{
+                                width: `${700 * canvasScale}px`,
+                                height: `${820 * canvasScale}px`,
+                            }}
+                        >
 
                             <img
                                 src={
@@ -696,20 +747,29 @@ function Design() {
                                 }
                                 alt="Tshirt"
                                 className="w-full h-full object-contain pointer-events-none select-none"
+                                /* 
+                                 * FALLBACK FIX: The source PNGs have excess transparent padding above the shirt.
+                                 * Ideally, all 26 source images should be re-cropped. As a fallback, we scale
+                                 * and shift ONLY the <img> tag up. This visually centers the shirt in the box
+                                 * and perfectly aligns the shirt graphics with the Konva Stage defaults (e.g. y:180).
+                                 */
+                                style={{ transform: "scale(1.12) translateY(-6%)" }}
                             />
 
                             {selectedObject && (
                                 <button
-                                    className="absolute z-30 w-8 h-8 rounded-full bg-danger text-surface flex items-center justify-center shadow-lg hover:scale-110 transition-transform cursor-pointer text-sm border border-surface"
+                                    className="absolute z-30 w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-danger text-surface flex items-center justify-center shadow-lg hover:scale-110 transition-transform cursor-pointer text-xs sm:text-sm border border-surface"
                                     style={{
-                                        left:
+                                        left: `${(
                                             selectedObject?.type === "logo"
-                                                ? selectedLogo?.x + selectedLogo?.width + 15
-                                                : selectedText?.x + 120,
-                                        top:
+                                                ? (selectedLogo?.x || 0) + (selectedLogo?.width || 0) + 15
+                                                : (selectedText?.x || 0) + 120
+                                        ) * canvasScale}px`,
+                                        top: `${(
                                             selectedObject?.type === "logo"
-                                                ? selectedLogo?.y - 20
-                                                : selectedText?.y - 20,
+                                                ? (selectedLogo?.y || 0) - 20
+                                                : (selectedText?.y || 0) - 20
+                                        ) * canvasScale}px`,
                                     }}
                                     onClick={() => {
                                         if (!selectedObject) return;
@@ -750,10 +810,17 @@ function Design() {
 
                             <Stage
                                 ref={stageRef}
-                                width={700}
-                                height={820}
+                                width={700 * canvasScale}
+                                height={820 * canvasScale}
+                                scaleX={canvasScale}
+                                scaleY={canvasScale}
                                 className="absolute inset-0"
                                 onMouseDown={(e) => {
+                                    if (e.target === e.target.getStage()) {
+                                        setSelectedObject(null);
+                                    }
+                                }}
+                                onTouchStart={(e) => {
                                     if (e.target === e.target.getStage()) {
                                         setSelectedObject(null);
                                     }
@@ -935,9 +1002,67 @@ function Design() {
                         </div>
                     </div>
 
+                    
+
                 </div>
 
+            
+                {/* ═══════════ MOBILE FIXED BOTTOM TOOLBAR ═══════════ */}
+                <div className="flex lg:hidden items-center justify-around w-full bg-surface border-t border-border p-3 shrink-0 relative z-20 shadow-[0_-4px_10px_rgba(0,0,0,0.05)]">
+                    <button onClick={undo} disabled={history.length === 0} className="flex flex-col items-center p-2 text-dark disabled:opacity-40">
+                        <span className="text-xl leading-none">↩</span>
+                        <span className="text-[10px] font-bold mt-1">Undo</span>
+                    </button>
+                    <button onClick={redo} disabled={future.length === 0} className="flex flex-col items-center p-2 text-dark disabled:opacity-40">
+                        <span className="text-xl leading-none">↪</span>
+                        <span className="text-[10px] font-bold mt-1">Redo</span>
+                    </button>
+                    <button onClick={() => setCurrentSide(currentSide === "front" ? "back" : "front")} className="flex flex-col items-center p-2 text-dark">
+                        <span className="text-xl leading-none">👕</span>
+                        <span className="text-[10px] font-bold mt-1">Flip</span>
+                    </button>
+                    <button onClick={() => setActiveMobilePanel("text")} className={`flex flex-col items-center p-2 ${activeMobilePanel === "text" ? "text-primary" : "text-dark"}`}>
+                        <span className="text-xl leading-none">✏️</span>
+                        <span className="text-[10px] font-bold mt-1">Text</span>
+                    </button>
+                    <button onClick={() => setActiveMobilePanel("color")} className={`flex flex-col items-center p-2 ${activeMobilePanel === "color" ? "text-primary" : "text-dark"}`}>
+                        <span className="text-xl leading-none">🎨</span>
+                        <span className="text-[10px] font-bold mt-1">Color</span>
+                    </button>
+                    <button onClick={() => setActiveMobilePanel("logo")} className={`flex flex-col items-center p-2 ${activeMobilePanel === "logo" ? "text-primary" : "text-dark"}`}>
+                        <span className="text-xl leading-none">🖼</span>
+                        <span className="text-[10px] font-bold mt-1">Logo</span>
+                    </button>
+                </div>
+
+                {/* Slide-up Bottom Sheets */}
+                {activeMobilePanel && (
+                    <>
+                        <div 
+                            className="fixed inset-0 bg-dark/20 z-40 lg:hidden"
+                            onClick={() => setActiveMobilePanel(null)}
+                        />
+                        <div className="fixed bottom-0 left-0 right-0 bg-surface rounded-t-2xl z-50 p-4 pb-8 max-h-[80vh] overflow-y-auto shadow-2xl lg:hidden transform transition-transform duration-300 translate-y-0">
+                            <div className="w-12 h-1.5 bg-border rounded-full mx-auto mb-4" />
+                            <div className="flex justify-between items-center mb-4">
+                                <h3 className="font-bold text-lg font-heading">
+                                    {activeMobilePanel === "text" && "Add Text"}
+                                    {activeMobilePanel === "color" && "T-Shirt Color"}
+                                    {activeMobilePanel === "logo" && "Upload Logo"}
+                                </h3>
+                                <button onClick={() => setActiveMobilePanel(null)} className="w-8 h-8 rounded-full bg-background border border-border flex items-center justify-center font-bold text-dark hover:bg-border/30">✕</button>
+                            </div>
+                            
+                            <div className="flex flex-col gap-4 pb-12">
+                                {activeMobilePanel === "text" && renderTextTools()}
+                                {activeMobilePanel === "color" && renderColorTools()}
+                                {activeMobilePanel === "logo" && renderLogoTools()}
+                            </div>
+                        </div>
+                    </>
+                )}
             </div>
+
 
             <QuoteModal
                 open={showQuoteModal}

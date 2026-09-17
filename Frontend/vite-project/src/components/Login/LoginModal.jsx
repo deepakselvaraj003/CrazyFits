@@ -1,12 +1,10 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
 import { sendOTP, verifyOTP } from "../../services/authService";
 import { useAuth } from "../../context/AuthContext";
 import Button from "../Button/Button";
 
 function LoginModal({ open, onClose }) {
-    const navigate = useNavigate();
-    const [step, setStep] = useState("choose");
+    const [step, setStep] = useState("customer");
     const [email, setEmail] = useState("");
     const [otp, setOtp] = useState("");
     const [loading, setLoading] = useState(false);
@@ -15,7 +13,7 @@ function LoginModal({ open, onClose }) {
 
     useEffect(() => {
         if (open) {
-            setStep("choose");
+            setStep("customer");
             setEmail("");
             setOtp("");
             setError("");
@@ -61,30 +59,6 @@ function LoginModal({ open, onClose }) {
 
     return (
         <div className="w-full max-w-sm rounded-[10px] border border-border bg-surface p-6 shadow-2xl shadow-black/10 transition-all duration-300 sm:p-8">
-            {step === "choose" && (
-                <div className="space-y-6">
-                    <div className="space-y-3">
-                        <Button
-                            variant="primary"
-                            onClick={() => setStep("customer")}
-                            className="w-full"
-                        >
-                            👤 Customer Login
-                        </Button>
-                        <Button
-                            variant="secondary"
-                            onClick={() => {
-                                onClose();
-                                navigate("/admin/login");
-                            }}
-                            className="w-full"
-                        >
-                            🛠 Admin Login
-                        </Button>
-                    </div>
-                </div>
-            )}
-
             {step === "customer" && (
                 <div className="space-y-5">
                     <div className="border-b border-border pb-4">
@@ -112,16 +86,12 @@ function LoginModal({ open, onClose }) {
                             onKeyDown={(e) => e.key === "Enter" && handleSendOTP()}
                             autoFocus
                         />
+                        <p className="text-xs text-secondary">
+                            You can log in or register using your email.
+                        </p>
                     </div>
 
-                    <div className="grid gap-3 sm:grid-cols-2">
-                        <Button
-                            variant="secondary"
-                            onClick={() => setStep("choose")}
-                            className="h-10 w-full px-4 text-sm"
-                        >
-                            Back
-                        </Button>
+                    <div>
                         <Button
                             variant="primary"
                             onClick={handleSendOTP}
